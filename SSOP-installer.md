@@ -89,3 +89,8 @@ Tri :
 - `record_versions` ajoute l'étape 9 : `tool_version` lit la version par la commande de l'outil, `tool_origin` et `formula_name` sa source et son package, `version_entry` l'entrée JSON.
 - « C'est prêt. » passe de `check_ready` à `main`, après l'étape 9 ; sans `--dev`, `check_ready` n'imprime rien quand tout tient.
 - Le dépôt est renommé `WaveProm/onboarding-integration-continue-waveprom` ; sur décision de Hypnos, chaque mention de l'ancien nom est remplacée, cette preuve comprise.
+- Le script vit seul dans le dépôt public WaveProm/installeur, sous `bin/installer.sh`, repris du commit 375cbf6 de WaveProm/onboarding-integration-continue-waveprom sans son historique ; la colonne Fichier des tables nomme son ancien chemin, à la racine.
+- Les étapes 7 à 11 partent dans `bin/configurer.sh` du dépôt privé du système : `allow_claude_commands`, le lien des consignes, le hook, leur vérification et `record_versions`, avec `claude_settings_input`, `write_claude_settings`, `tool_version`, `tool_origin`, `formula_name` et `version_entry` ; l'installeur n'a plus besoin de jq.
+- L'installeur compte huit étapes : les six premières inchangées, `check_ready` devient l'étape 7 et vérifie en plus que le clone du système porte `bin/configurer.sh`, et `hand_over_to_configurer`, l'étape 8, le lance, avec `--dev` en mode dev, puis rend une ligne d'échec quand il sort autrement qu'en 0.
+- `SYSTEM_CLONE` et `CONFIGURER` portent seuls le contrat avec le système, le nom de son dépôt et le chemin `bin/configurer.sh` ; `INSTALLER_URL` porte l'URL raw du dépôt public, la seule que l'installeur lit avant la connexion à GitHub.
+- « C'est prêt. » reste à `main`, après le passage de main.
