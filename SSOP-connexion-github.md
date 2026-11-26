@@ -49,3 +49,4 @@ Tri :
 | Ce que Claude dit pendant l'installation | l'en-tête de `bin/installer.sh` | Claude | une pull request sur ce dépôt |
 
 ## Amendements
+- L'en-tête ajoute une phrase conditionnelle pour la page de connexion de GitHub, que montre la page de code quand Chrome n'a pas de session ; le mail reste tel quel, sur décision de Hypnos.
