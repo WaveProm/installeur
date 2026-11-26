@@ -11,7 +11,7 @@ Le README dit ce que fait l'installeur ; ce fichier dit comment le garder sain.
 
 ## Ce qu'il ne possède pas
 
-- Tout ce qui suit les clones : les outils, les autorisations de Claude Code, les consignes de l'agence, le hook de début de session, la vérification du système et les versions.
+- Tout ce qui suit les clones, que détaillent l'en-tête de `bin/configurer.sh` et le README du système : les consignes de l'agence, les skills, et tout ce que Claude Code doit trouver à chaque session.
   `bin/configurer.sh` du dépôt privé WaveProm/onboarding-integration-continue-waveprom les possède, et les tient à jour seul à chaque session.
 - La liste des dépôts clonés : c'est celle de l'organisation WaveProm sur GitHub.
 - Le choix du rôle d'une personne : un owner le fixe en l'invitant.

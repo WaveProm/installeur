@@ -44,7 +44,7 @@ La personne fait deux gestes, parfois trois : le mot de passe du Mac, le clic su
    Le dépôt privé du système ne se lit qu'à cette étape, une fois la personne connectée, puisqu'une URL raw privée ne répond pas sans connexion.
 7. La vérification contrôle l'adhésion active, l'accès en écriture à chaque dépôt, la présence de chaque clone, et celle de `bin/configurer.sh` dans le clone du système.
    Le rôle n'est pas contrôlé : l'owner le choisit en envoyant l'invitation, admin pour un associé, membre pour un consultant.
-8. `bin/configurer.sh` du système prend la main et pose le reste : les outils, les autorisations de Claude Code, les consignes de l'agence, le hook de début de session, la vérification du système et le relevé des versions.
+8. `bin/configurer.sh` du système prend la main et pose tout ce qui suit les clones : les consignes de l'agence, et tout ce que Claude Code doit trouver à chaque session.
    Ses lignes commencent par « Configuration », et le README du système détaille ses étapes.
    Ensuite, le système se tient à jour seul au début de chaque session de Claude Code, sans repasser par l'installeur.
 

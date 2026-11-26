@@ -33,9 +33,9 @@
 #      git fetch, jamais écrasé. Le dépôt privé du système ne se lit qu'ici, une fois la personne connectée.
 #   7. La vérification : adhésion active, quel que soit le rôle, écriture sur chaque dépôt, chaque clone présent,
 #      bin/configurer.sh présent dans le clone du système ; sans --dev, elle n'imprime rien quand tout tient.
-#   8. bin/configurer.sh du système prend la main, avec --dev en mode dev, et pose le reste : outils, autorisations
-#      de Claude Code, consignes de l'agence, hook de début de session, vérification du système, versions.
-#      Ses lignes commencent par « Configuration », et sa ligne d'échec dit l'étape qui a échoué.
+#   8. bin/configurer.sh du système prend la main, avec --dev en mode dev, et pose tout ce qui suit les clones,
+#      que détaillent son en-tête et le README du système ; ses lignes commencent par « Configuration »,
+#      et sa ligne d'échec dit l'étape qui a échoué.
 #
 # Sortie : une ligne par étape sur stdout, la ligne d'un échec sur stderr, et ce qu'impriment les outils
 #          dans ~/Library/Logs/WaveProm/installer.log, ceux de la configuration dans configurer.log à côté.
