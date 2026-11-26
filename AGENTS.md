@@ -53,7 +53,7 @@ Chaque commande tourne depuis la racine du clone de la branche, et sa sortie va 
 - L'installeur ne lit rien du dépôt privé avant la connexion à GitHub de l'étape 5.
 - Un compte GitHub n'est créé que par la personne, à la main : l'installeur ouvre la page et s'arrête.
 - Chaque page s'ouvre dans Google Chrome, par `open_in_chrome`.
-- Ce que Claude dit à la personne s'écrit entre « » dans l'en-tête, en français simple, sans commande, nom de fichier ni terme git.
+- Ce que Claude dit à la personne s'écrit entre « » dans l'en-tête, en français simple, au tutoiement, sans commande, nom de fichier ni terme git.
 - Ce qui peut vivre dans le système y va : l'installeur ne grandit que pour amener un Mac jusqu'aux clones.
 - L'URL raw, la phrase d'entrée et la première ligne du README changent ensemble.
 - Le script garde son en-tête sous le shebang à jour : la commande et les phrases pour Claude Code, l'usage, le contrat, les étapes, la sortie, les codes de sortie.

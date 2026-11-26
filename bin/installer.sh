@@ -2,25 +2,26 @@
 # installer.sh - prépare le Mac d'une personne qui rejoint WaveProm à agir sur chaque dépôt de l'organisation.
 #
 # Pour Claude Code, à lire avant de lancer le script :
-#   La personne qui te parle ne connaît ni git, ni GitHub, ni le terminal. Chaque phrase entre « » se dit telle
-#   quelle, une par ligne, et rien de technique ne s'y ajoute : ni commande, ni nom de fichier, ni terme git.
+#   La personne qui te parle ne connaît ni git, ni GitHub, ni le terminal, et tu la tutoies. Chaque phrase entre
+#   « » se dit telle quelle, une par ligne, et rien de technique ne s'y ajoute : ni commande, ni nom de fichier,
+#   ni terme git.
 #   La seule commande à lancer, avec le délai maximal de l'outil Bash, 600000 ms :
 #     curl -fsSL https://raw.githubusercontent.com/WaveProm/installeur/main/bin/installer.sh | /bin/bash
 #   1. Avant de la lancer, dis :
-#        « Je prépare ce Mac pour WaveProm. Comptez une dizaine de minutes : je vous dis à chaque fois ce que vous
-#          verrez et ce que vous avez à faire. »
-#        « Si une fenêtre de macOS demande le mot de passe de ce Mac, tapez-le puis validez : il sert à installer
+#        « Je prépare ce Mac pour WaveProm. Compte une dizaine de minutes : je te dis à chaque fois ce que tu
+#          verras et ce que tu as à faire. »
+#        « Si une fenêtre de macOS demande le mot de passe de ce Mac, tape-le puis valide : il sert à installer
 #          les outils. »
 #   2. La commande sort en 4 quand elle vient d'ouvrir la page d'inscription de GitHub dans Chrome. Dis :
 #        « Chrome vient d'ouvrir la page d'inscription de GitHub, le site où l'agence range son travail. »
-#        « Créez-y votre compte vous-même, avec votre adresse e-mail professionnelle, celle que l'agence a
-#          invitée. GitHub vous envoie un code par e-mail pour la confirmer. »
-#        « Si vous avez déjà un compte GitHub à cette adresse, connectez-vous-y dans Chrome à la place. »
-#        « Quand c'est fait, répondez-moi "fait". »
+#        « Crée-y ton compte toi-même, avec ton adresse e-mail professionnelle, celle que l'agence a invitée.
+#          GitHub t'envoie un code par e-mail pour la confirmer. »
+#        « Si tu as déjà un compte GitHub à cette adresse, connecte-toi à ce compte dans Chrome à la place. »
+#        « Quand c'est fait, réponds-moi "fait". »
 #   3. Sur « fait », dis, puis relance la même commande :
-#        « Merci. Chrome va ouvrir une page de GitHub qui demande un code : il est déjà copié. Collez-le avec
-#          Cmd+V, cliquez sur "Continue", puis sur le bouton vert "Authorize". »
-#        « Si une page d'invitation de WaveProm s'ouvre ensuite, cliquez sur le bouton vert pour la rejoindre. »
+#        « Merci. Chrome va ouvrir une page de GitHub qui demande un code : il est déjà copié. Colle-le avec
+#          Cmd+V, clique sur "Continue", puis sur le bouton vert "Authorize". »
+#        « Si une page d'invitation de WaveProm s'ouvre ensuite, clique sur le bouton vert pour la rejoindre. »
 #   4. Coupée, par ce délai ou autre chose, la commande se relance telle quelle : chaque étape lit son état et
 #      reprend. Dis alors :
 #        « L'installation continue, encore quelques minutes. »
@@ -267,7 +268,7 @@ sign_in_to_github() {
   local login signed="déjà connecté"
   login=$(signed_in_login)
   if [[ -z $login ]]; then
-    say "5/10 GitHub : collez le code déjà copié sur la page ouverte dans $BROWSER, puis cliquez sur « Authorize »."
+    say "5/10 GitHub : colle le code déjà copié sur la page ouverte dans $BROWSER, puis clique sur « Authorize »."
     log_in_with_browser
     login=$(signed_in_login)
     [[ -n $login ]] || { fail "5/10 GitHub : connexion non aboutie, $(details)."; return 1; }
@@ -302,12 +303,12 @@ accept_invitation() {
     return 0
   fi
   if ! run_logged gh api --method PATCH "user/memberships/orgs/$ORG" -f state=active; then
-    say "6/10 $ORG : acceptez l'invitation sur la page ouverte dans $BROWSER."
+    say "6/10 $ORG : accepte l'invitation sur la page ouverte dans $BROWSER."
     open_in_chrome "$INVITATION_URL"
     accepted_by="sur la page GitHub"
   fi
   wait_for_active_membership ||
-    { fail "6/10 $ORG : toujours pas membre actif après $((INVITATION_WAIT_SECONDS / 60)) minutes. Vérifiez qu'un owner de $ORG a invité l'adresse e-mail de ce compte GitHub, puis relancez l'installeur."; return 1; }
+    { fail "6/10 $ORG : toujours pas membre actif après $((INVITATION_WAIT_SECONDS / 60)) minutes. Vérifie qu'un owner de $ORG a invité l'adresse e-mail de ce compte GitHub, puis relance l'installeur."; return 1; }
   read -r state role <<<"$(membership)"
   say "6/10 $ORG : invitation acceptée $accepted_by, membre actif, rôle $role."
 }

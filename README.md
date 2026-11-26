@@ -63,7 +63,7 @@ L'installeur finit sur « C'est prêt. », sur la ligne de l'étape 3 quand il a
 ## Ce que Claude dit à la personne
 
 Chaque phrase que Claude dit pendant l'installation est écrite entre « » dans l'en-tête de `bin/installer.sh`, à côté du moment où elle se dit : avant de lancer, à l'arrêt sur le compte GitHub, à la relance, à la fin.
-Ce sont des phrases en français simple sur ce que la personne voit et fait, sans commande, nom de fichier ni terme git.
+Ce sont des phrases en français simple sur ce que la personne voit et fait, au tutoiement comme le mail de l'agence, sans commande, nom de fichier ni terme git.
 Après « C'est prêt. », les phrases sont celles du système de l'agence.
 
 Ce qu'impriment Homebrew, gh et git va dans `~/Library/Logs/WaveProm/installer.log`, et ce qu'imprime la configuration dans `configurer.log` à côté.
