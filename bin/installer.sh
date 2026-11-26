@@ -3,7 +3,7 @@
 #
 # Pour Claude Code, à lire avant de lancer le script :
 #   La seule commande à lancer, avec le délai maximal de l'outil Bash, 600000 ms :
-#     curl -fsSL https://raw.githubusercontent.com/WaveProm/onboarding-integration-continue-waveprom/main/installer.sh | /bin/bash
+#     curl -fsSL https://raw.githubusercontent.com/WaveProm/installeur/main/bin/installer.sh | /bin/bash
 #   Coupée, par ce délai ou autre chose, elle se relance telle quelle : chaque étape lit son état et reprend.
 #   Avant de la lancer, dire à la personne, en une ligne chacun :
 #     une fenêtre macOS va demander le mot de passe de ce Mac ;
@@ -12,10 +12,14 @@
 #   À la fin, ne lui montrer que « C'est prêt. », ou la ligne de l'étape qui a échoué.
 #
 # Usage :
-#   installer.sh          les onze étapes, puis « C'est prêt. » ou la ligne de l'étape qui a échoué
-#   installer.sh --dev    les onze étapes, et chaque contrôle de la vérification de l'étape 10
+#   installer.sh          les huit étapes, puis « C'est prêt. » ou la ligne de l'étape qui a échoué
+#   installer.sh --dev    les huit étapes, et chaque contrôle des vérifications, celle de l'étape 7 et celle du système
 #   installer.sh --help   imprime cet en-tête, lu depuis l'URL raw quand le script arrive par un pipe
 #   Sur un Mac qui porte ~/.hypnos, celui d'un associé, déjà installé à la main, il refuse avant toute étape.
+#
+# Le contrat avec le système : le dépôt privé WaveProm/onboarding-integration-continue-waveprom se clone dans
+# ~/.waveprom/onboarding-integration-continue-waveprom et y expose bin/configurer.sh, que l'étape 8 lance ;
+# changer l'un de ces deux noms exige la même modification dans l'autre dépôt, le même jour.
 #
 # Étapes, chacune lit son état avant d'agir et imprime une ligne :
 #   1. Homebrew, par son installeur officiel, NONINTERACTIVE=1 et SUDO_ASKPASS sur un dialogue macOS ;
@@ -25,44 +29,32 @@
 #   4. L'invitation à WaveProm, acceptée par PATCH /user/memberships/orgs/WaveProm, sinon par un clic
 #      sur https://github.com/orgs/WaveProm/invitation, attendu 5 minutes.
 #   5. user.name et user.email de git, pris du compte GitHub, l'adresse noreply quand l'e-mail est privé.
-#   6. ~/.waveprom/<dépôt>, un clone par dépôt de WaveProm ; un clone existant reçoit git fetch, jamais écrasé.
-#   7. Bash(git *), Bash(gh *) et Bash(brew *) ajoutés à permissions.allow de ~/.claude/settings.json, par jq.
-#   8. ~/.claude/CLAUDE.md, lien symbolique vers gabarit/CLAUDE.md du clone de ce dépôt, les consignes de l'agence
-#      que charge chaque session de Claude Code ; un fichier déjà là est gardé tel quel sous
-#      ~/.claude/CLAUDE.md.avant-waveprom.
-#   9. Un hook SessionStart ajouté à ~/.claude/settings.json, par jq : il lance session-start.sh du clone, qui met
-#      le clone à jour, donc les consignes, et donne à Claude l'état git du dépôt de la session.
-#  10. La vérification : adhésion active, quel que soit le rôle, écriture sur chaque dépôt, chaque clone présent,
-#      le lien vers les consignes, le hook et son script ; sans --dev, elle n'imprime rien quand tout tient.
-#  11. Les versions de brew, git, gh, jq et macOS, réécrites à chaque run dans ~/.waveprom/versions.json,
-#      un tableau de {"command", "source", "package", "version"} au format de ~/.hypnos/state/tools_store.json,
-#      pour qu'un script de mise à jour les compare ; un outil qui ne répond pas à --version fait échouer l'étape.
+#   6. ~/.waveprom/<dépôt>, un clone par dépôt de WaveProm, le système compris ; un clone existant reçoit
+#      git fetch, jamais écrasé. Le dépôt privé du système ne se lit qu'ici, une fois la personne connectée.
+#   7. La vérification : adhésion active, quel que soit le rôle, écriture sur chaque dépôt, chaque clone présent,
+#      bin/configurer.sh présent dans le clone du système ; sans --dev, elle n'imprime rien quand tout tient.
+#   8. bin/configurer.sh du système prend la main, avec --dev en mode dev, et pose le reste : outils, autorisations
+#      de Claude Code, consignes de l'agence, hook de début de session, vérification du système, versions.
+#      Ses lignes commencent par « Configuration », et sa ligne d'échec dit l'étape qui a échoué.
 #
 # Sortie : une ligne par étape sur stdout, la ligne d'un échec sur stderr, et ce qu'impriment les outils
-#          dans ~/Library/Logs/WaveProm/installer.log.
-# Codes de sortie : 0 prêt ; 1 une étape a échoué ; 2 option inconnue ; 3 Mac d'un associé, rien n'est touché.
+#          dans ~/Library/Logs/WaveProm/installer.log, ceux de la configuration dans configurer.log à côté.
+# Codes de sortie : 0 prêt ; 1 une étape a échoué, configuration comprise ; 2 option inconnue ;
+#                   3 Mac d'un associé, rien n'est touché.
 set -u -o pipefail
 
-INSTALLER_REPOSITORY="onboarding-integration-continue-waveprom"
-INSTALLER_URL="https://raw.githubusercontent.com/WaveProm/$INSTALLER_REPOSITORY/main/installer.sh"
+INSTALLER_URL="https://raw.githubusercontent.com/WaveProm/installeur/main/bin/installer.sh"
 ORG="WaveProm"
 HOST="github.com"
 REPOSITORIES_NAME=".waveprom"
 REPOSITORIES_DIR="$HOME/$REPOSITORIES_NAME"
+SYSTEM_CLONE="$REPOSITORIES_DIR/onboarding-integration-continue-waveprom"
+CONFIGURER="$SYSTEM_CLONE/bin/configurer.sh"
 BREW="/opt/homebrew/bin/brew"
 HOMEBREW_INSTALLER_URL="https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh"
 DEVICE_URL="https://github.com/login/device"
 INVITATION_URL="https://github.com/orgs/$ORG/invitation"
 GITHUB_SCOPE="repo"
-VERSIONS_FILE="$REPOSITORIES_DIR/versions.json"
-VERSIONED_TOOLS="brew git gh jq"
-CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-CLAUDE_RULES='["Bash(git *)","Bash(gh *)","Bash(brew *)"]'
-CLAUDE_INSTRUCTIONS="$HOME/.claude/CLAUDE.md"
-CLAUDE_INSTRUCTIONS_BEFORE="$CLAUDE_INSTRUCTIONS.avant-waveprom"
-AGENCY_INSTRUCTIONS="$REPOSITORIES_DIR/$INSTALLER_REPOSITORY/gabarit/CLAUDE.md"
-SESSION_START_SCRIPT="$REPOSITORIES_DIR/$INSTALLER_REPOSITORY/session-start.sh"
-SESSION_START_SECONDS=15
 LOG_FILE="$HOME/Library/Logs/WaveProm/installer.log"
 INVITATION_WAIT_SECONDS=300
 ASSOCIATE_DIR="$HOME/.hypnos"
@@ -128,46 +120,46 @@ ASKPASS
 run_homebrew_installer() {
   local installer askpass status
   if ! installer=$(curl -fsSL "$HOMEBREW_INSTALLER_URL" 2>>"$LOG_FILE") || [[ -z $installer ]]; then
-    fail "1/11 Homebrew : téléchargement de l'installeur officiel impossible, $(details)."
+    fail "1/8 Homebrew : téléchargement de l'installeur officiel impossible, $(details)."
     return 1
   fi
   askpass=$(ask_password_script) ||
-    { fail "1/11 Homebrew : création du dialogue de mot de passe impossible."; return 1; }
+    { fail "1/8 Homebrew : création du dialogue de mot de passe impossible."; return 1; }
   NONINTERACTIVE=1 SUDO_ASKPASS="$askpass" /bin/bash -c "$installer" </dev/null >>"$LOG_FILE" 2>&1
   status=$?
   rm -f "$askpass"
   [[ $status -eq 0 && -x $BREW ]] ||
-    fail "1/11 Homebrew : échec de l'installation, $(details)."
+    fail "1/8 Homebrew : échec de l'installation, $(details)."
 }
 
 install_homebrew() {
   local zprofile="${ZDOTDIR:-$HOME}/.zprofile"
   local installed="déjà installé"
   if [[ ! -x $BREW ]]; then
-    say "1/11 Homebrew : installation, une fenêtre macOS va demander le mot de passe de ce Mac."
+    say "1/8 Homebrew : installation, une fenêtre macOS va demander le mot de passe de ce Mac."
     run_homebrew_installer || return 1
     installed="installé"
   fi
   eval "$("$BREW" shellenv bash)"
   if grep -qs "eval \"\$($BREW shellenv[^\"]*)\"" "$zprofile"; then
-    say "1/11 Homebrew : $installed, déjà sur le PATH de zsh."
+    say "1/8 Homebrew : $installed, déjà sur le PATH de zsh."
     return 0
   fi
   printf '\n%s\n' "eval \"\$($BREW shellenv zsh)\"" >>"$zprofile" ||
-    { fail "1/11 Homebrew : $installed, mais $(shown "$zprofile") refuse l'écriture."; return 1; }
-  say "1/11 Homebrew : $installed, ajouté au PATH de zsh dans $(shown "$zprofile")."
+    { fail "1/8 Homebrew : $installed, mais $(shown "$zprofile") refuse l'écriture."; return 1; }
+  say "1/8 Homebrew : $installed, ajouté au PATH de zsh dans $(shown "$zprofile")."
 }
 
 install_gh() {
   if command -v gh >/dev/null; then
-    say "2/11 gh : déjà installé."
+    say "2/8 gh : déjà installé."
     return 0
   fi
   if ! run_logged "$BREW" install gh || ! command -v gh >/dev/null; then
-    fail "2/11 gh : échec de brew install gh, $(details)."
+    fail "2/8 gh : échec de brew install gh, $(details)."
     return 1
   fi
-  say "2/11 gh : installé par Homebrew."
+  say "2/8 gh : installé par Homebrew."
 }
 
 signed_in_login() {
@@ -203,19 +195,19 @@ sign_in_to_github() {
   local login signed="déjà connecté"
   login=$(signed_in_login)
   if [[ -z $login ]]; then
-    say "3/11 GitHub : collez le code déjà copié sur la page ouverte dans le navigateur, puis cliquez sur « Authorize »."
+    say "3/8 GitHub : collez le code déjà copié sur la page ouverte dans le navigateur, puis cliquez sur « Authorize »."
     log_in_with_browser
     login=$(signed_in_login)
-    [[ -n $login ]] || { fail "3/11 GitHub : connexion non aboutie, $(details)."; return 1; }
+    [[ -n $login ]] || { fail "3/8 GitHub : connexion non aboutie, $(details)."; return 1; }
     signed="connecté"
   fi
   if git_uses_gh; then
-    say "3/11 GitHub : $signed en tant que $login, git déjà relié à gh."
+    say "3/8 GitHub : $signed en tant que $login, git déjà relié à gh."
     return 0
   fi
   run_logged gh auth setup-git --hostname "$HOST" ||
-    { fail "3/11 GitHub : $signed en tant que $login, mais gh auth setup-git a échoué, $(details)."; return 1; }
-  say "3/11 GitHub : $signed en tant que $login, git relié à gh."
+    { fail "3/8 GitHub : $signed en tant que $login, mais gh auth setup-git a échoué, $(details)."; return 1; }
+  say "3/8 GitHub : $signed en tant que $login, git relié à gh."
 }
 
 membership() {
@@ -234,18 +226,18 @@ accept_invitation() {
   local state role accepted_by="par l'API"
   read -r state role <<<"$(membership)"
   if [[ $state == active ]]; then
-    say "4/11 $ORG : déjà membre actif, rôle $role."
+    say "4/8 $ORG : déjà membre actif, rôle $role."
     return 0
   fi
   if ! run_logged gh api --method PATCH "user/memberships/orgs/$ORG" -f state=active; then
-    say "4/11 $ORG : acceptez l'invitation sur la page ouverte dans le navigateur."
+    say "4/8 $ORG : acceptez l'invitation sur la page ouverte dans le navigateur."
     open "$INVITATION_URL"
     accepted_by="sur la page GitHub"
   fi
   wait_for_active_membership ||
-    { fail "4/11 $ORG : toujours pas membre actif après $((INVITATION_WAIT_SECONDS / 60)) minutes. Vérifiez qu'un owner de $ORG a invité l'adresse e-mail de ce compte GitHub, puis relancez l'installeur."; return 1; }
+    { fail "4/8 $ORG : toujours pas membre actif après $((INVITATION_WAIT_SECONDS / 60)) minutes. Vérifiez qu'un owner de $ORG a invité l'adresse e-mail de ce compte GitHub, puis relancez l'installeur."; return 1; }
   read -r state role <<<"$(membership)"
-  say "4/11 $ORG : invitation acceptée $accepted_by, membre actif, rôle $role."
+  say "4/8 $ORG : invitation acceptée $accepted_by, membre actif, rôle $role."
 }
 
 set_git_identity() {
@@ -253,17 +245,17 @@ set_git_identity() {
   account=$(gh api user --jq '.login,
     (if (.name // "") == "" then .login else .name end),
     (if (.email // "") == "" then "\(.id)+\(.login)@users.noreply.github.com" else .email end)' 2>>"$LOG_FILE") ||
-    { fail "5/11 Identité git : lecture du compte GitHub impossible, $(details)."; return 1; }
+    { fail "5/8 Identité git : lecture du compte GitHub impossible, $(details)."; return 1; }
   { read -r login; read -r name; read -r email; } <<<"$account"
   if [[ $(git config --global user.name) == "$name" && $(git config --global user.email) == "$email" ]]; then
-    say "5/11 Identité git : déjà réglée sur le compte GitHub $login."
+    say "5/8 Identité git : déjà réglée sur le compte GitHub $login."
     return 0
   fi
   if ! git config --global user.name "$name" || ! git config --global user.email "$email"; then
-    fail "5/11 Identité git : écriture dans $(shown "$HOME/.gitconfig") impossible."
+    fail "5/8 Identité git : écriture dans $(shown "$HOME/.gitconfig") impossible."
     return 1
   fi
-  say "5/11 Identité git : réglée sur le compte GitHub $login."
+  say "5/8 Identité git : réglée sur le compte GitHub $login."
 }
 
 org_repositories() {
@@ -282,143 +274,32 @@ clone_repositories() {
   local shown_dir
   shown_dir=$(shown "$REPOSITORIES_DIR")
   if ! repositories=$(org_repositories) || [[ -z $repositories ]]; then
-    fail "6/11 Dépôts : liste des dépôts de $ORG illisible, $(details)."
+    fail "6/8 Dépôts : liste des dépôts de $ORG illisible, $(details)."
     return 1
   fi
   mkdir -p "$REPOSITORIES_DIR" "$partial" ||
-    { fail "6/11 Dépôts : création de $shown_dir impossible."; return 1; }
+    { fail "6/8 Dépôts : création de $shown_dir impossible."; return 1; }
   while read -r name _; do
     if [[ -d $REPOSITORIES_DIR/$name/.git ]]; then
       run_logged git -C "$REPOSITORIES_DIR/$name" fetch --quiet ||
-        { fail "6/11 Dépôts : git fetch de $name a échoué, $(details)."; return 1; }
+        { fail "6/8 Dépôts : git fetch de $name a échoué, $(details)."; return 1; }
       fetched=$((fetched + 1))
     elif [[ -e $REPOSITORIES_DIR/$name ]]; then
-      fail "6/11 Dépôts : $shown_dir/$name existe sans être un clone git, il reste tel quel."
+      fail "6/8 Dépôts : $shown_dir/$name existe sans être un clone git, il reste tel quel."
       return 1
     else
       clone_repository "$name" "$partial" ||
-        { fail "6/11 Dépôts : clonage de $ORG/$name impossible, $(details)."; return 1; }
+        { fail "6/8 Dépôts : clonage de $ORG/$name impossible, $(details)."; return 1; }
       cloned=$((cloned + 1))
     fi
   done <<<"$repositories"
   rmdir "$partial" 2>/dev/null
   if ((cloned == 0)); then
-    say "6/11 Dépôts : déjà clonés dans $shown_dir, $fetched mis à jour par git fetch."
+    say "6/8 Dépôts : déjà clonés dans $shown_dir, $fetched mis à jour par git fetch."
   elif ((fetched == 0)); then
-    say "6/11 Dépôts : $(counted "$cloned" cloné) dans $shown_dir."
+    say "6/8 Dépôts : $(counted "$cloned" cloné) dans $shown_dir."
   else
-    say "6/11 Dépôts : $(counted "$cloned" cloné), $(counted "$fetched" "déjà présent") et mis à jour par git fetch, dans $shown_dir."
-  fi
-}
-
-claude_settings_input() {
-  if [[ -f $CLAUDE_SETTINGS ]]; then
-    printf '%s\n' "$CLAUDE_SETTINGS"
-  else
-    printf '/dev/null\n'
-  fi
-}
-
-write_claude_settings() {
-  local content=$1 next
-  if ! mkdir -p "${CLAUDE_SETTINGS%/*}" || ! next=$(mktemp "$CLAUDE_SETTINGS.XXXXXX"); then
-    return 1
-  fi
-  if ! printf '%s\n' "$content" >"$next" || ! mv "$next" "$CLAUDE_SETTINGS"; then
-    rm -f "$next"
-    return 1
-  fi
-}
-
-allow_claude_commands() {
-  local missing next
-  command -v jq >/dev/null || run_logged "$BREW" install jq ||
-    { fail "7/11 Claude Code : jq introuvable et brew install jq a échoué, $(details)."; return 1; }
-  missing=$(jq -sc --argjson rules "$CLAUDE_RULES" '$rules - ((.[0] // {}).permissions.allow // [])' \
-    "$(claude_settings_input)" 2>>"$LOG_FILE") ||
-    { fail "7/11 Claude Code : $(shown "$CLAUDE_SETTINGS") n'est pas un JSON lisible, il reste tel quel."; return 1; }
-  if [[ $missing == "[]" ]]; then
-    say "7/11 Claude Code : git, gh et brew déjà autorisés sans demande."
-    return 0
-  fi
-  if ! next=$(jq -s --argjson rules "$CLAUDE_RULES" \
-    '(.[0] // {}) | .permissions.allow = ((.permissions.allow // []) as $allow | $allow + ($rules - $allow))' \
-    "$(claude_settings_input)" 2>>"$LOG_FILE") || ! write_claude_settings "$next"; then
-    fail "7/11 Claude Code : écriture de $(shown "$CLAUDE_SETTINGS") impossible, $(details)."
-    return 1
-  fi
-  say "7/11 Claude Code : git, gh et brew autorisés sans demande dans $(shown "$CLAUDE_SETTINGS")."
-}
-
-instructions_linked() {
-  [[ -L $CLAUDE_INSTRUCTIONS && $(readlink "$CLAUDE_INSTRUCTIONS") == "$AGENCY_INSTRUCTIONS" ]]
-}
-
-link_agency_instructions() {
-  local kept=""
-  if instructions_linked; then
-    say "8/11 Consignes : $(shown "$CLAUDE_INSTRUCTIONS") mène déjà aux consignes de l'agence."
-    return 0
-  fi
-  if [[ -e $CLAUDE_INSTRUCTIONS || -L $CLAUDE_INSTRUCTIONS ]]; then
-    if [[ -e $CLAUDE_INSTRUCTIONS_BEFORE || -L $CLAUDE_INSTRUCTIONS_BEFORE ]]; then
-      fail "8/11 Consignes : $(shown "$CLAUDE_INSTRUCTIONS") n'est pas le lien de l'agence et $(shown "$CLAUDE_INSTRUCTIONS_BEFORE") existe déjà, les deux restent tels quels."
-      return 1
-    fi
-    mv "$CLAUDE_INSTRUCTIONS" "$CLAUDE_INSTRUCTIONS_BEFORE" ||
-      { fail "8/11 Consignes : déplacement de $(shown "$CLAUDE_INSTRUCTIONS") vers $(shown "$CLAUDE_INSTRUCTIONS_BEFORE") impossible."; return 1; }
-    kept=", l'ancien fichier gardé sous $(shown "$CLAUDE_INSTRUCTIONS_BEFORE")"
-  fi
-  if ! mkdir -p "${CLAUDE_INSTRUCTIONS%/*}" || ! ln -s "$AGENCY_INSTRUCTIONS" "$CLAUDE_INSTRUCTIONS"; then
-    fail "8/11 Consignes : création du lien $(shown "$CLAUDE_INSTRUCTIONS") impossible."
-    return 1
-  fi
-  say "8/11 Consignes : $(shown "$CLAUDE_INSTRUCTIONS") mène aux consignes de l'agence, $(shown "$AGENCY_INSTRUCTIONS")$kept."
-}
-
-session_start_command() {
-  printf '/bin/bash %q' "$SESSION_START_SCRIPT"
-}
-
-session_start_hooked() {
-  jq -sc --arg command "$(session_start_command)" \
-    '[(.[0] // {}).hooks.SessionStart[]?.hooks[]?.command] | index($command) != null' \
-    "$(claude_settings_input)" 2>>"$LOG_FILE"
-}
-
-run_start_script_at_session_start() {
-  local hooked next
-  hooked=$(session_start_hooked) ||
-    { fail "9/11 Début de session : $(shown "$CLAUDE_SETTINGS") n'est pas un JSON lisible, il reste tel quel."; return 1; }
-  if [[ $hooked == true ]]; then
-    say "9/11 Début de session : session-start.sh déjà lancé au début de chaque session de Claude Code."
-    return 0
-  fi
-  if ! next=$(jq -s --arg command "$(session_start_command)" --argjson seconds "$SESSION_START_SECONDS" \
-    '(.[0] // {}) | .hooks.SessionStart = ((.hooks.SessionStart // [])
-      + [{hooks: [{type: "command", command: $command, timeout: $seconds}]}])' \
-    "$(claude_settings_input)" 2>>"$LOG_FILE") || ! write_claude_settings "$next"; then
-    fail "9/11 Début de session : écriture de $(shown "$CLAUDE_SETTINGS") impossible, $(details)."
-    return 1
-  fi
-  say "9/11 Début de session : session-start.sh lancé au début de chaque session de Claude Code, par un hook SessionStart de $(shown "$CLAUDE_SETTINGS")."
-}
-
-check_session_setup() {
-  local mode=$1 hooked
-  instructions_linked ||
-    { fail "10/11 Vérification : $(shown "$CLAUDE_INSTRUCTIONS") n'est pas le lien vers $(shown "$AGENCY_INSTRUCTIONS")."; return 1; }
-  [[ -f $AGENCY_INSTRUCTIONS ]] ||
-    { fail "10/11 Vérification : consignes absentes du clone, $(shown "$AGENCY_INSTRUCTIONS")."; return 1; }
-  hooked=$(session_start_hooked) ||
-    { fail "10/11 Vérification : $(shown "$CLAUDE_SETTINGS") n'est pas un JSON lisible."; return 1; }
-  [[ $hooked == true ]] ||
-    { fail "10/11 Vérification : aucun hook SessionStart de $(shown "$CLAUDE_SETTINGS") ne lance $(shown "$SESSION_START_SCRIPT")."; return 1; }
-  [[ -f $SESSION_START_SCRIPT ]] ||
-    { fail "10/11 Vérification : script de début de session absent du clone, $(shown "$SESSION_START_SCRIPT")."; return 1; }
-  if [[ $mode == dev ]]; then
-    say "10/11 Vérification : $(shown "$CLAUDE_INSTRUCTIONS") mène à $(shown "$AGENCY_INSTRUCTIONS"), présent."
-    say "10/11 Vérification : hook SessionStart présent, il lance $(shown "$SESSION_START_SCRIPT"), présent."
+    say "6/8 Dépôts : $(counted "$cloned" cloné), $(counted "$fetched" "déjà présent") et mis à jour par git fetch, dans $shown_dir."
   fi
 }
 
@@ -427,82 +308,38 @@ check_ready() {
   shown_dir=$(shown "$REPOSITORIES_DIR")
   read -r state role <<<"$(membership)"
   [[ $state == active ]] ||
-    { fail "10/11 Vérification : adhésion à $ORG ${state:-absente}, attendue active."; return 1; }
+    { fail "7/8 Vérification : adhésion à $ORG ${state:-absente}, attendue active."; return 1; }
   if [[ $mode == dev ]]; then
-    say "10/11 Vérification : membre de $ORG, rôle $role, état $state."
+    say "7/8 Vérification : membre de $ORG, rôle $role, état $state."
   fi
   if ! repositories=$(org_repositories) || [[ -z $repositories ]]; then
-    fail "10/11 Vérification : liste des dépôts de $ORG illisible, $(details)."
+    fail "7/8 Vérification : liste des dépôts de $ORG illisible, $(details)."
     return 1
   fi
   while read -r name push; do
     [[ $push == true ]] ||
-      { fail "10/11 Vérification : pas d'accès en écriture sur $ORG/$name."; return 1; }
+      { fail "7/8 Vérification : pas d'accès en écriture sur $ORG/$name."; return 1; }
     [[ -d $REPOSITORIES_DIR/$name/.git ]] ||
-      { fail "10/11 Vérification : clone absent, $shown_dir/$name."; return 1; }
+      { fail "7/8 Vérification : clone absent, $shown_dir/$name."; return 1; }
     if [[ $mode == dev ]]; then
-      say "10/11 Vérification : $ORG/$name, écriture autorisée, clone présent dans $shown_dir/$name."
+      say "7/8 Vérification : $ORG/$name, écriture autorisée, clone présent dans $shown_dir/$name."
     fi
   done <<<"$repositories"
-  check_session_setup "$mode"
-}
-
-tool_version() {
-  "$@" 2>/dev/null | grep -oE 'v?[0-9]+\.[0-9]+[0-9A-Za-z.,_-]*' | head -n 1
-}
-
-formula_name() {
-  local name=$1 receipt=$2 tap
-  tap=$(jq -r '.source.tap // empty' "$receipt" 2>>"$LOG_FILE")
-  if [[ -z $tap || $tap == homebrew/core ]]; then
-    printf '%s\n' "$name"
-  else
-    printf '%s/%s\n' "$tap" "$name"
+  [[ -f $CONFIGURER ]] ||
+    { fail "7/8 Vérification : $(shown "$CONFIGURER") absent du clone du système."; return 1; }
+  if [[ $mode == dev ]]; then
+    say "7/8 Vérification : $(shown "$CONFIGURER") présent dans le clone du système."
   fi
 }
 
-tool_origin() {
-  local tool=$1 cellar="${HOMEBREW_CELLAR:-/opt/homebrew/Cellar}" path name keg_version
-  path=$(command -v "$tool") && path=$(/usr/bin/readlink -f "$path")
-  if [[ $tool == brew ]]; then
-    printf 'self brew\n'
-  elif [[ -n $path && $path == "$cellar"/* ]]; then
-    IFS=/ read -r name keg_version _ <<<"${path#"$cellar"/}"
-    printf 'brew %s\n' "$(formula_name "$name" "$cellar/$name/$keg_version/INSTALL_RECEIPT.json")"
-  else
-    printf 'macos -\n'
-  fi
-}
-
-version_entry() {
-  jq -nc --arg command "$1" --arg source "$2" --arg package "$3" --arg version "$4" \
-    '{command: $command, source: $source, package: $package, version: $version}'
-}
-
-record_versions() {
-  local tool source package version entries="" summary="" next state="relevées"
-  for tool in $VERSIONED_TOOLS; do
-    version=$(tool_version "$tool" --version)
-    [[ -n $version ]] || { fail "11/11 Versions : $tool ne répond pas à $tool --version."; return 1; }
-    read -r source package <<<"$(tool_origin "$tool")"
-    entries+="$(version_entry "$tool" "$source" "$package" "$version")"$'\n'
-    summary+="$tool $version, "
-  done
-  version=$(tool_version sw_vers -productVersion)
-  [[ -n $version ]] || { fail "11/11 Versions : sw_vers ne répond pas à sw_vers -productVersion."; return 1; }
-  entries+="$(version_entry sw_vers macos macOS "$version")"
-  summary+="macOS $version"
-  if ! next=$(mktemp "$VERSIONS_FILE.XXXXXX") || ! printf '%s\n' "$entries" | jq -s . >"$next" 2>>"$LOG_FILE"; then
-    rm -f "${next:-}"
-    fail "11/11 Versions : écriture de $(shown "$VERSIONS_FILE") impossible, $(details)."
-    return 1
-  fi
-  if cmp -s "$next" "$VERSIONS_FILE"; then
-    state="déjà relevées, inchangées"
-  fi
-  mv "$next" "$VERSIONS_FILE" ||
-    { fail "11/11 Versions : écriture de $(shown "$VERSIONS_FILE") impossible."; return 1; }
-  say "11/11 Versions : $summary, $state dans $(shown "$VERSIONS_FILE")."
+hand_over_to_configurer() {
+  local mode=$1 option="" status
+  [[ $mode == dev ]] && option=--dev
+  say "8/8 Configuration : $(shown "$CONFIGURER") prend la main."
+  /bin/bash "$CONFIGURER" ${option:+"$option"} </dev/null
+  status=$?
+  ((status == 0)) ||
+    fail "8/8 Configuration : $(shown "$CONFIGURER") s'est arrêté sur la ligne ci-dessus, code de sortie $status."
 }
 
 main() {
@@ -532,11 +369,8 @@ main() {
     accept_invitation &&
     set_git_identity &&
     clone_repositories &&
-    allow_claude_commands &&
-    link_agency_instructions &&
-    run_start_script_at_session_start &&
     check_ready "$mode" &&
-    record_versions &&
+    hand_over_to_configurer "$mode" &&
     say "C'est prêt."
 }
 
