@@ -6,7 +6,7 @@ Le README dit ce que fait l'installeur ; ce fichier dit comment le garder sain.
 
 ## Ce que ce dépôt possède
 
-- L'amorçage du Mac d'une personne qui rejoint WaveProm, `bin/installer.sh` : Homebrew, Chrome, l'arrêt où la personne crée son compte GitHub et son témoin `~/.waveprom/compte-github-demande`, gh, la connexion à GitHub, l'invitation à WaveProm, l'identité git, un clone par dépôt de l'organisation dans `~/.waveprom`, leur vérification, et le passage de main au système.
+- L'amorçage du Mac d'une personne qui rejoint WaveProm, `bin/installer.sh` : Homebrew, Chrome, gh, la connexion au compte GitHub que la personne a créé avant l'installation, avec l'arrêt qui la précède et son témoin `~/.waveprom/connexion-github-annoncee`, l'invitation à WaveProm, l'identité git, un clone par dépôt de l'organisation dans `~/.waveprom`, leur vérification, et le passage de main au système.
 - Ce que Claude dit à la personne pendant l'installation : les phrases entre « » de l'en-tête de `bin/installer.sh`.
 - La porte d'entrée : la phrase « Installe github.com/WaveProm/installeur », la première ligne du README qui envoie Claude Code à l'en-tête du script, et l'URL raw de cet en-tête, `https://raw.githubusercontent.com/WaveProm/installeur/main/bin/installer.sh`.
 
@@ -19,7 +19,7 @@ Le README dit ce que fait l'installeur ; ce fichier dit comment le garder sain.
 
 ## Le contrat avec le système
 
-Le seul contrat : le dépôt privé WaveProm/onboarding-integration-continue-waveprom se clone dans `~/.waveprom/onboarding-integration-continue-waveprom`, et l'étape 10 y lance `bin/configurer.sh`, avec `--dev` en mode dev ou sans argument.
+Le seul contrat : le dépôt privé WaveProm/onboarding-integration-continue-waveprom se clone dans `~/.waveprom/onboarding-integration-continue-waveprom`, et l'étape 9 y lance `bin/configurer.sh`, avec `--dev` en mode dev ou sans argument.
 Ce que la configuration imprime en dernier s'adresse à Claude, et l'en-tête de l'installeur lui dit de le suivre sans en nommer le contenu.
 `SYSTEM_CLONE` et `CONFIGURER`, en tête de `bin/installer.sh`, portent ces deux noms, et rien d'autre dans ce dépôt ne nomme un fichier du système.
 Changer l'un des deux exige la même modification dans l'autre dépôt, le même jour, par deux pull requests qui se citent et se fusionnent ensemble.
@@ -41,7 +41,7 @@ Chaque commande tourne depuis la racine du clone de la branche, et sa sortie va 
    Tant qu'une pull request du système n'est pas fusionnée, son clone se pose d'abord sur sa branche :
    `git clone -q -b <branche> https://github.com/WaveProm/onboarding-integration-continue-waveprom.git "$H/.waveprom/onboarding-integration-continue-waveprom"`.
 3. `bin/installer.sh --help` imprime l'en-tête, et `curl -fsSL` de l'URL raw imprime le même script une fois la branche fusionnée.
-4. L'arrêt sur le compte GitHub tient, sans `GH_TOKEN` et avec un `open` factice en tête du `PATH` : le premier run sort en 4 sur la ligne de l'étape 3 et n'a ouvert que https://github.com/signup, le second passe l'étape 3 sur « déjà demandé ».
+4. L'arrêt avant la connexion à GitHub tient, sans `GH_TOKEN` et avec un `open` factice en tête du `PATH` : le premier run sort en 4 sur la ligne de l'étape 4, n'a rien ouvert, et laisse le témoin `~/.waveprom/connexion-github-annoncee`.
 5. Le refus sur le Mac d'un associé tient : avec `mkdir "$A/.hypnos"`, `HOME=$A /bin/bash bin/installer.sh --dev` sort en 3 et `ls -A "$A"` ne montre que `.hypnos`.
 6. `grep -rn 'onboarding-integration-continue-waveprom' --exclude-dir=.git .` ne trouve que le contrat, le nom du système et l'historique du journal et de la preuve.
 
@@ -50,8 +50,8 @@ Chaque commande tourne depuis la racine du clone de la branche, et sa sortie va 
 - Chaque étape reste idempotente : relancé sur un Mac installé, l'installeur ne change rien et le dit à chaque étape.
 - Une personne déjà installée n'est jamais cassée : un changement tient sur un Mac installé par la version de `main`.
 - Ce dépôt est public : il ne porte ni secret, ni donnée d'un client, ni rien qui ne se lise par tous.
-- L'installeur ne lit rien du dépôt privé avant la connexion à GitHub de l'étape 5.
-- Un compte GitHub n'est créé que par la personne, à la main : l'installeur ouvre la page et s'arrête.
+- L'installeur ne lit rien du dépôt privé avant la connexion à GitHub de l'étape 4.
+- Un compte GitHub n'est créé que par la personne, à la main, avant l'installation, avec le mail de l'agence : l'installeur ne fait que relier le Mac à ce compte.
 - Chaque page s'ouvre dans Google Chrome, par `open_in_chrome`.
 - Ce que Claude dit à la personne s'écrit entre « » dans l'en-tête, en français simple, au tutoiement, sans commande, nom de fichier ni terme git.
 - Ce qui peut vivre dans le système y va : l'installeur ne grandit que pour amener un Mac jusqu'aux clones.
